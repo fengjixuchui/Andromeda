@@ -1,6 +1,5 @@
 #include <cstdio>
 
-#include "color/color.hpp"
 #include "utils.hpp"
 
 #include "APK.hpp"
@@ -24,6 +23,8 @@ void help_commands()
 	printf(" - print list of entry points [LIMITED]\n");
 	color::color_printf(color::FG_LIGHT_GREEN, "entry_points_extended [epe]");
 	printf(" - print all possible entry points\n");
+	color::color_printf(color::FG_LIGHT_GREEN, "classes");
+	printf(" - print all classes from APK file\n");
 	color::color_printf(color::FG_LIGHT_GREEN, "class_info [class] class_path");
 	printf(" - print list of methods from a class\n");
 	color::color_printf(color::FG_LIGHT_GREEN, "disassemble [dis] method_path");
@@ -36,6 +37,21 @@ void help_commands()
 	printf(" - print content of root certificate\n");
 	color::color_printf(color::FG_LIGHT_GREEN, "creation_date");
 	printf(" - print creation date of the application based on a certificate\n");
+
+	// libs
+	color::color_printf(color::FG_LIGHT_GREEN, "libs");
+	printf(" - print list of native library files\n");
+	color::color_printf(color::FG_LIGHT_GREEN, "dump_libs");
+	printf(" - write all lib files to disk\n");
+	color::color_printf(color::FG_LIGHT_GREEN, "dump_lib lib_path");
+	printf(" - write 'lib_path' file to disk\n");
+	
+	// strings
+	color::color_printf(color::FG_LIGHT_GREEN, "strings [strs]");
+	printf(" - print the strings of APK (thanks to Strings Constant Pool)\n");
+
+	color::color_printf(color::FG_LIGHT_GREEN, "string [str] search_string");
+	printf(" - find \"search_string\" in the strings of APK\n");
 
 	color::color_printf(color::FG_LIGHT_GREEN, "clr");
 	printf(": Clear screen\n");
@@ -62,17 +78,6 @@ int main(const int argc, char* argv[])
 		printf("Invalid file path: %ls\n", full_path.wstring().c_str());
 		return -1;
 	}
-	//printf("File: %ls\n", full_path.wstring().c_str());
-
-	// Setup completion words every time when a user types
-	linenoise::SetCompletionCallback([](const char* editBuffer, std::vector<std::string>& completions)
-	{
-		if (editBuffer[0] == 'h')
-		{
-			completions.push_back("hello");
-			completions.push_back("hello there");
-		}
-	});
 
 	// Setup completion words every time when a user types
 	linenoise::SetCompletionCallback([](const char* editBuffer, std::vector<std::string>& completions)
@@ -93,11 +98,15 @@ int main(const int argc, char* argv[])
 		{
 			completions.emplace_back("dis ");
 			completions.emplace_back("disassemble ");
+
+			completions.emplace_back("dump_lib ");
+			completions.emplace_back("dump_libs");
 		}
 		else if (editBuffer[0] == 'c')
 		{
 			completions.emplace_back("class ");
 			completions.emplace_back("class_info ");
+			completions.emplace_back("classes");
 
 			completions.emplace_back("certificate");
 			completions.emplace_back("creation_date");
@@ -115,9 +124,21 @@ int main(const int argc, char* argv[])
 		{
 			completions.emplace_back("revoke_date");
 		}
+		else if (editBuffer[0] == 's')
+		{
+			completions.emplace_back("strs");
+			completions.emplace_back("strings");
+
+			completions.emplace_back("str ");
+			completions.emplace_back("string ");
+		}
 		else if (editBuffer[0] == 'i')
 		{
 			completions.emplace_back("is_debuggable");
+		}
+		else if (editBuffer[0] == 'l')
+		{
+			completions.emplace_back("libs");
 		}
 
 		else if (editBuffer[0] == 'h')
@@ -184,6 +205,11 @@ int main(const int argc, char* argv[])
 			}
 		}
 
+		else if (line == "classes")
+		{
+			apk.dump_classes();
+		}
+
 		else if (utils::starts_with(line, "dis ") || utils::starts_with(line, "disassemble "))
 		{
 			auto [_, method_path] = utils::split(line, ' ');
@@ -209,12 +235,52 @@ int main(const int argc, char* argv[])
 			apk.dump_revoke_date();
 		}
 
-			// clear screen
+		// libs
+		else if (line == "libs")
+		{
+			const auto libs = apk.get_libs(full_path);
+			if (!libs.empty())
+			{
+				color::color_printf(color::FG_DARK_GRAY, "Libs:\n");
+				for (const auto& lib : libs)
+				{
+					color::color_printf(color::FG_GREEN, "\t%s\n", lib.c_str());
+				}
+			}
+		}
+		else if (line == "dump_libs")
+		{
+			apk.get_libs(full_path, true);
+		}
+		else if (utils::starts_with(line, "dump_lib "))
+		{
+			auto [_, lib_path] = utils::split(line, ' ');
+			if (!lib_path.empty())
+			{
+				apk.get_libs(full_path, true, lib_path);
+			}
+		}
+
+		// strings
+		else if (line == "strings" || line == "strs")
+		{
+			apk.dump_strings();
+		}
+		else if (utils::starts_with(line, "str ") || utils::starts_with(line, "string "))
+		{
+			auto [_, target_string] = utils::split(line, ' ');
+			if (!target_string.empty())
+			{
+				apk.search_string(target_string);
+			}
+		}
+
+		// clear screen
 		else if (line == "clr")
 		{
 			utils::clrscr();
 		}
-			// invalid command
+		// invalid command
 		else
 		{
 			color::color_printf(color::FG_RED, "Invalid command: %s\n", line.c_str());
