@@ -51,6 +51,12 @@ void help_commands()
 	printf(" - print content of root certificate\n");
 	color::color_printf(color::FG_LIGHT_GREEN, "creation_date");
 	printf(" - print creation date of the application based on a certificate\n");
+	
+
+	// permissions
+	printf("\n");
+	color::color_printf(color::FG_LIGHT_GREEN, "permissions [perms]");
+	printf(" - permissions requested by the APK file\n");
 
 	// libs
 	printf("\n");
@@ -67,6 +73,11 @@ void help_commands()
 	printf(" - print the strings of APK (thanks to Strings Constant Pool)\n");
 	color::color_printf(color::FG_LIGHT_GREEN, "string [str] search_string");
 	printf(" - find \"search_string\" in the strings of APK\n");
+
+	// misc
+	printf("\n");
+	color::color_printf(color::FG_LIGHT_GREEN, "language [lang]");
+	printf(" - print a language used to write the application\n");
 
 	printf("\n");
 	color::color_printf(color::FG_LIGHT_GREEN, "cls [clr]");
@@ -165,6 +176,14 @@ int main(const int argc, char* argv[])
 		else if (editBuffer[0] == 'l')
 		{
 			completions.emplace_back("libs");
+			completions.emplace_back("language");
+			completions.emplace_back("lang");
+			
+		}
+		else if (editBuffer[0] == 'p')
+		{
+			completions.emplace_back("permissions");
+			completions.emplace_back("perms");
 		}
 
 		else if (editBuffer[0] == 'h')
@@ -203,6 +222,10 @@ int main(const int argc, char* argv[])
 		else if (line == "manifest")
 		{
 			apk.dump_manifest_file();
+		}
+		else if (line == "permissions" || line == "perms")
+		{
+			apk.dump_permissions();
 		}
 		else if (line == "is_debuggable")
 		{
@@ -321,6 +344,12 @@ int main(const int argc, char* argv[])
 			{
 				apk.search_string(target_string);
 			}
+		}
+
+		// misc
+		else if (line == "language" || line == "lang")
+		{
+			apk.dump_language();
 		}
 
 		// clear screen
