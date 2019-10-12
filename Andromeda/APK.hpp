@@ -5,7 +5,9 @@
 #include "dex.hpp"
 #include "manifest.hpp"
 #include "cert.hpp"
+#include "patterns.hpp"
 
+#include "digestpp/digestpp.hpp"
 
 namespace andromeda
 {
@@ -87,8 +89,13 @@ namespace andromeda
 		apk(const apk&) = default;
 		apk& operator=(const apk&) = default;
 
-		std::vector<std::string> get_libs(const fs::path& file_path, const bool extract = false, const std::string& target_lib_path = "")
+		std::vector<std::string> get_libs(const fs::path& file_path, bool extract = false, const std::string& target_lib_path = "", const bool get_hash = false)
 		{
+			if (get_hash == true)
+			{
+				extract = true;
+			}
+
 			std::vector<std::string> libs{};
 
 			mz_zip_archive zip_archive;
@@ -108,6 +115,7 @@ namespace andromeda
 
 			const auto dest_dir = fs::current_path().string() + '/' + "libs";
 
+			const auto current_path = fs::current_path().string();
 			for (auto i = 0; i < file_count; i++)
 			{
 				mz_zip_archive_file_stat file_stat;
@@ -157,7 +165,17 @@ namespace andromeda
 					}
 					else
 					{
-						color::color_printf(color::FG_GREEN, "unpacked lib: %s\n", dest_file.c_str());
+						if (get_hash == true)
+						{
+							const auto file_content = utils::read_file_content(dest_file);
+							const auto file_sha1_ascii = digestpp::sha1().absorb(file_content).hexdigest();
+							color::color_printf(color::FG_GREEN, "%s: ", file_name.c_str());
+							color::color_printf(color::FG_DARK_GRAY, "%s\n", file_sha1_ascii.c_str());
+						}
+						else
+						{
+							color::color_printf(color::FG_GREEN, "unpacked lib: %s\n", dest_file.c_str());
+						}
 					}
 				}
 
@@ -297,6 +315,52 @@ namespace andromeda
 			}
 		}
 
+		
+		void dump_activities() const 
+		{
+			if (!app_manifest->activities.empty())
+			{
+				color::color_printf(color::FG_DARK_GRAY, "Activities:\n");
+				for (const auto& [name, intents]  : app_manifest->activities)
+				{
+					auto full_class_name = name;
+					if (!full_class_name.empty() && full_class_name[0] == '.')
+					{
+						if (!app_manifest->manifest_package.empty())
+						{
+							full_class_name = app_manifest->manifest_package + full_class_name;
+						}
+					}
+
+					color_printf(color::FG_GREEN, "\t%s\n", full_class_name.c_str());
+				}
+			}
+		}
+
+		void dump_services() const
+		{
+			if (!app_manifest->services.empty())
+			{
+				color::color_printf(color::FG_DARK_GRAY, "Services:\n");
+				for (const auto& [name, intents]  : app_manifest->services)
+				{
+					color_printf(color::FG_GREEN, "\t%s\n", name.c_str());
+				}
+			}
+		}
+
+		void dump_receivers() const
+		{
+			if (!app_manifest->receivers.empty())
+			{
+				color::color_printf(color::FG_DARK_GRAY, "Receivers:\n");
+				for (const auto& [name, intents]  : app_manifest->receivers)
+				{
+					color_printf(color::FG_GREEN, "\t%s\n", name.c_str());
+				}
+			}
+		}
+
 		void is_debuggable() const
 		{
 			const auto is_debug = app_manifest->is_debuggable();
@@ -350,6 +414,53 @@ namespace andromeda
 					}
 				}
 			}
+		}
+
+		void dump_interesting_strings()
+		{
+			std::vector<std::string> urls{};
+			std::vector<std::string> emails{};
+
+			for (auto parsed_dex : parsed_dexes)
+			{
+				const auto dex_strings = parsed_dex.get_strings();
+				if (!dex_strings.empty())
+				{
+					for (const auto& str : dex_strings)
+					{
+						if (is_url(str))
+						{
+							urls.emplace_back(str);
+						}
+						
+						if(is_email(str))
+						{
+							emails.emplace_back(str);
+						}
+					}
+				}
+			}
+
+			// URLs:
+			if (!urls.empty())
+			{
+				color::color_printf(color::FG_DARK_GRAY, "URLs:\n");
+				for (const auto& url : urls)
+				{
+					color::color_printf(color::FG_GREEN, "\t%s\n", url.c_str());
+				}
+			}
+
+			// emails
+			if (!emails.empty())
+			{
+				color::color_printf(color::FG_DARK_GRAY, "e-Mails:\n");
+				for (const auto& email : emails)
+				{
+					color::color_printf(color::FG_GREEN, "\t%s\n", email.c_str());
+				}
+			}
+
 		}
 
 		void search_string(std::string& target_string)

@@ -3,6 +3,9 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <sstream>
+#include <fstream>
+#include <iterator>
 #include <algorithm>
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
@@ -14,6 +17,14 @@ namespace fs = std::experimental::filesystem;
 
 namespace utils
 {
+	void split(const std::string& str, std::vector<std::string>& cont)
+	{
+		std::istringstream iss{str};
+		std::copy(std::istream_iterator<std::string>(iss),
+				std::istream_iterator<std::string>(),
+				std::back_inserter(cont));
+	}
+
 	inline std::shared_ptr<char> read_file(const std::string& file_path, size_t& file_size)
 	{
 		const auto in_file = fopen(file_path.c_str(), "rb");
@@ -170,6 +181,27 @@ namespace utils
 		std::transform(to_search.begin(), to_search.end(), to_search.begin(), tolower);
 
 		return data.find(to_search, pos);
+	}
+
+	inline std::string strip(std::string str)
+	{
+		size_t first = str.find_first_not_of(" \n\r\n");
+		if (std::string::npos == first)
+		{
+			return str;
+		}
+		size_t last = str.find_last_not_of(" \n\r\n");
+		return str.substr(first, (last - first + 1));
+	}
+
+	inline std::string read_file_content(const std::string& file_path)
+	{
+		std::ifstream file_stream(file_path, std::ios::binary);
+		std::string file_content((std::istreambuf_iterator<char>(file_stream)),
+		                         std::istreambuf_iterator<char>());
+		file_stream.close();
+
+		return file_content;
 	}
 
 	inline void clrscr()
